@@ -1,0 +1,12 @@
+\.DS_Store
+\.idea/
+\.gradle/
+out/
+build/
+output/
+jsoncontentbuilderlib\.txt
+JSON-Content-Builder.txt
+changelog.html
+log.txt
+*.iml
+
