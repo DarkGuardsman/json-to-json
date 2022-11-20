@@ -1,5 +1,7 @@
 package com.darkguardsman.json.remap;
 
+import com.darkguardsman.json.remap.core.MapperNode;
+import com.darkguardsman.json.remap.jackson.JacksonHandler;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -15,6 +17,7 @@ public class MapperNodeTest {
     void remapObject() {
 
         final ObjectMapper objectMapper = new ObjectMapper();
+        final JacksonHandler handler = new JacksonHandler(objectMapper);
 
         // Setup input object
         final ObjectNode inputObject = objectMapper.createObjectNode();
@@ -35,35 +38,37 @@ public class MapperNodeTest {
         );
 
         // Setup mapper nodes
-        final MapperNode firstField = new MapperNode();
+        final MapperNode<JsonNode, ObjectNode, ArrayNode> firstField = new MapperNode();
         firstField.setFieldName("type");
         firstField.setMapper((mapper, node) -> {
-            final ObjectNode objectNode = mapper.createObjectNode();
+            final ObjectNode objectNode = mapper.newObject();
             objectNode.set("id", node.get("field1"));
             objectNode.set("name", node.get("field2"));
             return objectNode;
         });
-        final MapperNode secondField = new MapperNode();
+        final MapperNode<JsonNode, ObjectNode, ArrayNode> secondField = new MapperNode();
         secondField.setFieldName("values");
         secondField.setAccessor((node) -> node.get("field3"));
         secondField.setMapper((mapper, node) -> {
             if (node instanceof ArrayNode sourceArray) {
-                final ArrayNode arrayNode = mapper.createArrayNode();
+                final ArrayNode arrayNode = mapper.newArray();
                 sourceArray.forEach(value -> {
-                    arrayNode.add(mapper.createObjectNode().put("id", value.asInt()));
+                    final ObjectNode subObject = mapper.newObject();
+                    mapper.setField(subObject, "id", handler.newInteger(value.asInt()));
+                    arrayNode.add(subObject);
                 });
                 return arrayNode;
             }
-            return mapper.nullNode();
+            return mapper.newNull();
         });
-        final MapperNode rootNode = new MapperNode();
+        final MapperNode<JsonNode, ObjectNode, ArrayNode> rootNode = new MapperNode();
         rootNode.setMapper(List.of(
                 firstField,
                 secondField
         ));
 
         // Invoke remapping
-        final JsonNode output = rootNode.apply(objectMapper, inputObject);
+        final JsonNode output = rootNode.apply(handler, inputObject);
 
         // Check they match expected
         Assertions.assertEquals(expectedOutput, output);

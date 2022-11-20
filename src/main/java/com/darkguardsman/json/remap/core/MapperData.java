@@ -1,26 +1,24 @@
-package com.darkguardsman.json.remap;
+package com.darkguardsman.json.remap.core;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Data;
 
 @Data
-public class MapperData {
+public class MapperData<T extends Object, O extends T, A extends T> {
 
     /** Unique key for this mapper, ex: com.darkguardsman.event.messages:post:3.0.1 */
     private String key;
 
     /** Node that accepts the root json to start the mapper */
-    private MapperNode rootNode;
+    private MapperNode<T, O, A> rootNode;
 
     /**
      * Invokes to remap a node into a new json node
      *
-     * @param objectMapper used to create new nodes
+     * @param factory used to create new nodes
      * @param node to transverse
      * @return new json created from the original node
      */
-    public JsonNode handle(ObjectMapper objectMapper, JsonNode node) {
-        return rootNode.apply(objectMapper, node);
+    public T handle(NodeHandler<T, O, A> factory, T node) {
+        return rootNode.apply(factory, node);
     }
 }
