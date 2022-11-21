@@ -27,17 +27,6 @@ public class MapperNode<T extends Object, O extends T, A extends T> implements B
         return this;
     }
 
-    public MapperNode<T, O, A> setMapper(List<MapperNode<T, O, A>> nodes) {
-        this.mapper = (factory, value) -> {
-            final O objectNode = factory.newObject();
-            nodes.forEach(node -> {
-                factory.setField(objectNode, node.fieldName, node.apply(factory, value));
-            });
-            return objectNode;
-        };
-        return this;
-    }
-
     /**
      * Called to apply node for remap
      *

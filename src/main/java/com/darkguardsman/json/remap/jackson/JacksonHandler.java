@@ -10,6 +10,8 @@ import com.fasterxml.jackson.databind.node.*;
 import lombok.AllArgsConstructor;
 
 import java.util.Objects;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 @AllArgsConstructor
 public class JacksonHandler implements NodeHandler<JsonNode, ObjectNode, ArrayNode> {
@@ -77,6 +79,11 @@ public class JacksonHandler implements NodeHandler<JsonNode, ObjectNode, ArrayNo
             return (ArrayNode) node;
         }
         throw new MapperTypeException("Node is not an array, node=" + node.getNodeType());
+    }
+
+    @Override
+    public Stream<JsonNode> asStream(ArrayNode array, boolean parallel) {
+        return StreamSupport.stream(array.spliterator(), parallel);
     }
 
     @Override

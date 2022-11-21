@@ -3,6 +3,8 @@ package com.darkguardsman.json.remap.core;
 import com.darkguardsman.json.remap.core.errors.MapperException;
 import com.darkguardsman.json.remap.core.errors.MapperTypeException;
 
+import java.util.stream.Stream;
+
 /**
  * Abstraction around either GSON or Jackson to allow logic to work regardless of system
  */
@@ -74,6 +76,8 @@ public interface NodeHandler<T extends Object, O extends T, A extends T> {
      * @throws MapperTypeException when node is not an object
      */
     A asArray(T node) throws MapperTypeException;
+
+    Stream<T> asStream(A array, boolean parallel);
 
 
     boolean isObject(T node);

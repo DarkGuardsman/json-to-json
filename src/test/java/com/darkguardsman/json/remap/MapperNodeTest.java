@@ -62,10 +62,12 @@ public class MapperNodeTest {
             return mapper.newNull();
         });
         final MapperNode<JsonNode, ObjectNode, ArrayNode> rootNode = new MapperNode();
-        rootNode.setMapper(List.of(
-                firstField,
-                secondField
-        ));
+        rootNode.setMapper((mapper, node) -> {
+            final ObjectNode objectNode = mapper.newObject();
+            objectNode.set("id", firstField.apply(mapper, node));
+            objectNode.set("name", secondField.apply(mapper, node));
+            return objectNode;
+        });
 
         // Invoke remapping
         final JsonNode output = rootNode.apply(handler, inputObject);
