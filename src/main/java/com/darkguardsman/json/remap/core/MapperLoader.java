@@ -1,13 +1,17 @@
 package com.darkguardsman.json.remap.core;
 
 import com.darkguardsman.json.remap.core.errors.MapperException;
-import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.darkguardsman.json.remap.core.imp.IAccessorFunc;
+import com.darkguardsman.json.remap.core.imp.IMapperFunc;
+import com.darkguardsman.json.remap.core.imp.INodeHandler;
+import com.darkguardsman.json.remap.core.mappers.*;
+import com.darkguardsman.json.remap.core.nodes.MapperNode;
+import com.darkguardsman.json.remap.core.nodes.MapperNodeObject;
 import lombok.AllArgsConstructor;
 
-import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
-import java.util.function.BiFunction;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -18,21 +22,23 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class MapperLoader<T extends Object, O extends T, A extends T> { //TODO convert to interface so we can have GSON or Jackson direct write to objects for us
 
+    private final Map<String, IMapperFunc<T, O, A>> mappers = new HashMap(); //TODO see if there is a better map for strings
     private static final String FIELD_KEY = "key";
     private static final String FIELD_MAPPING = "mapping";
     private static final String FIELD_TYPE = "type";
+    private static final String FIELD_MAPPER = "mapper";
     private static final String FIELD_FIELDS = "fields";
     private static final String FIELD_FIELD = "field";
     private static final String FIELD_ACCESSOR = "accessor";
 
-    private static final String TYPE_STRING = "string";
-    private static final String TYPE_INT = "int";
-    private static final String TYPE_INTEGER = "integer";
-    private static final String TYPE_DOUBLE = "double";
-    private static final String TYPE_OBJECT = "object";
-    private static final String TYPE_ARRAY = "array";
 
-    private static final String TYPE_AS_IS = "current";
+
+    public static final String TYPE_ARRAY = "array";
+
+    private static final String TYPE_OBJECT = "object";
+
+
+
     private static final String TYPE_ARRAY_JOINED = "array.joined";
 
     private static final String ACTION_FLAT_MAP = "map.flat";
@@ -43,7 +49,19 @@ public class MapperLoader<T extends Object, O extends T, A extends T> { //TODO c
     /**
      * Handler to interact with JSON nodes, should match what is expected for mapping files later in the process
      */
-    private final NodeHandler<T, O, A> handler;
+    private final INodeHandler<T, O, A> handler;
+
+    public MapperLoader<T, O, A> loadDefaults() {
+        IntegerMapper.register(this);
+        DoubleMapper.register(this);
+        StringMapper.register(this);
+        AsIsMapper.register(this);
+        return this;
+    }
+
+    public void addMapper(String type, IMapperFunc<T, O, A> mapper) {
+        this.mappers.put(type, mapper);
+    }
 
     /**
      * Used to load a configuration file used to generate a mapper
@@ -73,56 +91,41 @@ public class MapperLoader<T extends Object, O extends T, A extends T> { //TODO c
         throw new IllegalArgumentException("mapper configuration needs to be a JSON object");
     }
 
-    private MapperNode<T, O, A> loadNode(O mappingObject) {
-        final MapperNode<T, O, A> mapperNode = new MapperNode();
+    public MapperNode<T, O, A> loadNode(O mappingObject) {
+        final String type = handler.asText(handler.getField(mappingObject, FIELD_TYPE));
 
-        // Load accessor if provided
         final T accessor = handler.getField(mappingObject, FIELD_ACCESSOR);
-        mapperNode.setAccessor(loadAccessor(accessor));
+        final IAccessorFunc<T> accessorFunc = loadAccessor(accessor);
+        if(type.equalsIgnoreCase(TYPE_OBJECT)) {
+            final MapperNodeObject<T, O, A> mapperNode = new MapperNodeObject();
+            mapperNode.setAccessor(accessorFunc);
 
-        // Load mapper if provided
-        mapperNode.setMapper(loadMapper(mappingObject));
+            // Load pre-processor if provided
+            if(handler.hasField(mappingObject, FIELD_MAPPER)) {
+                final O nestedMapper = handler.asObject(handler.getField(mappingObject, FIELD_MAPPER));
+                final String nestedType = handler.asText(handler.getField(nestedMapper, FIELD_TYPE));
+                mapperNode.setMapper(loadMapper(nestedType, nestedMapper));
+            }
 
+            // Load fields, required
+            A fields = handler.asArray(handler.getField(mappingObject, FIELD_FIELDS));
+            mapperNode.setFields(handler.asStream(fields, false).map(handler::asObject).map(this::loadNode).toList());
+
+            return mapperNode;
+        }
+
+        final MapperNode<T, O, A> mapperNode = new MapperNode();
+        mapperNode.setAccessor(accessorFunc);
+        mapperNode.setMapper(loadMapper(type, mappingObject));
         return mapperNode;
     }
 
-    private BiFunction<NodeHandler<T, O, A>, T, T> loadMapper(O mappingObject) {
-        // Load mapper based on type
-        final String type = handler.asText(handler.getField(mappingObject, FIELD_TYPE));
+    public IMapperFunc<T, O, A> loadMapper(String type, O mappingObject) {
 
-        // Maps exact value found, useful if we just want to change nesting level or are mapping for an array
-        if(type.equalsIgnoreCase(TYPE_AS_IS)) {
-            return (factory, input) -> input;
-        }
-        // Text based
-        else if (type.equalsIgnoreCase(TYPE_STRING)) {
-            return (factory, input) -> factory.newText(factory.asText(input));
-        }
-        // Whole number
-        else if (type.equalsIgnoreCase(TYPE_INTEGER) || type.equalsIgnoreCase(TYPE_INT)) {
-            return (factory, input) -> factory.newInteger(factory.asInt(input));
-        }
-        // Floating number
-        else if (type.equalsIgnoreCase(TYPE_DOUBLE)) {
-            return (factory, input) -> factory.newFloating(factory.asDouble(input));
-        }
-        // Array mapper
-        else if (type.equalsIgnoreCase(TYPE_ARRAY)) {
-            // TODO create mapper
-            // TODO get pre-processor (aka split string into items)
-            // TODO use 'item' field to create object node for each sub-object
-        }
-        // Object mapper
-        else if(type.equalsIgnoreCase(TYPE_OBJECT)) {
-            final A fields = handler.asArray(handler.getField(mappingObject, FIELD_FIELDS));
-            final List<MapperNode<T, O, A>> nodes = handler.asStream(fields, false).map(handler::asObject).map(this::loadNode).toList();
-            return (factory, input) -> {
-                final O objectNode = factory.newObject();
-                nodes.forEach(node -> {
-                    factory.setField(objectNode, node.getFieldName(), node.apply(factory, input));
-                });
-                return objectNode;
-            };
+        // Pull from map
+        final IMapperFunc<T, O, A> mapper = mappers.get(type);
+        if(mapper != null) {
+            return mapper;
         }
         // Converts array into joined string, useful for legacy systems that do string concat elements
         // Often combined with other mappers to get the text value first
@@ -144,7 +147,7 @@ public class MapperLoader<T extends Object, O extends T, A extends T> { //TODO c
         throw new IllegalArgumentException("mapper configuration failed to load unknown mapper type; node=" + mappingObject);
     }
 
-    private Function<T, T> loadAccessor(T node) {
+    public IAccessorFunc<T> loadAccessor(T node) {
 
         // Series of step to run, taking input from the previous step
         if(handler.isArray(node)) {
@@ -154,6 +157,7 @@ public class MapperLoader<T extends Object, O extends T, A extends T> { //TODO c
         else if(handler.isObject(node)) {
             final O accessorObject = handler.asObject(node);
             final String action = handler.asText(handler.getField(accessorObject, FIELD_TYPE));
+            final boolean useRoot = Optional.ofNullable(handler.getField(accessorObject, "root")).map(handler::asBoolean).orElse(false);
 
             // Converts an array of node into different nodes EX: [{id: 1}, {id: 2}] -> [1, 2]
             if(action.equalsIgnoreCase(ACTION_MAP)) {
@@ -163,22 +167,22 @@ public class MapperLoader<T extends Object, O extends T, A extends T> { //TODO c
             else if(action.equalsIgnoreCase(ACTION_FLAT_MAP)) {
                 //TODO map then join first layer of arrays
             }
-            // Same as string accessor, mostly exists for those that don't want to place a random string in an array of objects
+            // Simple get field type
             else if(action.equalsIgnoreCase(ACTION_GET)) {
-                return loadAccessorString(handler.asText(handler.getField(accessorObject, FIELD_FIELD)));
+                return loadAccessorString(handler.asText(handler.getField(accessorObject, FIELD_FIELD)), useRoot);
             }
             else {
                 throw new IllegalArgumentException("mapper configuration failed to load unknown action type; node=" + node);
             }
         }
-        return loadAccessorString(handler.asText(node));
+        return loadAccessorString(handler.asText(node), false);
     }
 
-    private Function<T, T> loadAccessorString(String accessor) {
+    private IAccessorFunc<T> loadAccessorString(String accessor, boolean useRoot) {
         if (accessor != null) {
             String[] split = accessor.split("[.]");
-            return (node) -> {
-                T value = node;
+            return (node, root) -> {
+                T value = useRoot ? root : node;
 
                 // Dive fields in attempt to resolve full path
                 for (String field : split) {

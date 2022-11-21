@@ -1,8 +1,6 @@
 package com.darkguardsman.json.remap.jackson;
 
-import com.darkguardsman.json.remap.core.MapperNode;
-import com.darkguardsman.json.remap.core.NodeHandler;
-import com.darkguardsman.json.remap.core.errors.MapperException;
+import com.darkguardsman.json.remap.core.imp.INodeHandler;
 import com.darkguardsman.json.remap.core.errors.MapperTypeException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,7 +12,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 @AllArgsConstructor
-public class JacksonHandler implements NodeHandler<JsonNode, ObjectNode, ArrayNode> {
+public class JacksonHandler implements INodeHandler<JsonNode, ObjectNode, ArrayNode> {
 
     private final ObjectMapper mapper;
 
@@ -51,6 +49,11 @@ public class JacksonHandler implements NodeHandler<JsonNode, ObjectNode, ArrayNo
     @Override
     public String asText(JsonNode node) {
         return node.asText();
+    }
+
+    @Override
+    public boolean asBoolean(JsonNode node) {
+        return node.asBoolean();
     }
 
     @Override
@@ -99,6 +102,11 @@ public class JacksonHandler implements NodeHandler<JsonNode, ObjectNode, ArrayNo
     @Override
     public void setField(ObjectNode object, String field, JsonNode node) {
         object.set(field, node);
+    }
+
+    @Override
+    public void addItem(ArrayNode array, JsonNode item) {
+        array.add(item);
     }
 
     @Override

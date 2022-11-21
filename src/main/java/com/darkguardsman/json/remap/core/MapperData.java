@@ -1,5 +1,7 @@
 package com.darkguardsman.json.remap.core;
 
+import com.darkguardsman.json.remap.core.imp.INodeHandler;
+import com.darkguardsman.json.remap.core.nodes.MapperNode;
 import lombok.Data;
 
 @Data
@@ -18,7 +20,7 @@ public class MapperData<T extends Object, O extends T, A extends T> {
      * @param node to transverse
      * @return new json created from the original node
      */
-    public T handle(NodeHandler<T, O, A> factory, T node) {
-        return rootNode.apply(factory, node);
+    public T handle(INodeHandler<T, O, A> factory, T node) {
+        return rootNode.apply(factory, node, node);
     }
 }

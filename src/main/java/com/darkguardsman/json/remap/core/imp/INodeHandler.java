@@ -1,6 +1,5 @@
-package com.darkguardsman.json.remap.core;
+package com.darkguardsman.json.remap.core.imp;
 
-import com.darkguardsman.json.remap.core.errors.MapperException;
 import com.darkguardsman.json.remap.core.errors.MapperTypeException;
 
 import java.util.stream.Stream;
@@ -8,7 +7,7 @@ import java.util.stream.Stream;
 /**
  * Abstraction around either GSON or Jackson to allow logic to work regardless of system
  */
-public interface NodeHandler<T extends Object, O extends T, A extends T> {
+public interface INodeHandler<T extends Object, O extends T, A extends T> {
 
     /**
      * Creates a new object node
@@ -54,6 +53,8 @@ public interface NodeHandler<T extends Object, O extends T, A extends T> {
 
     String asText(T node);
 
+    boolean asBoolean(T node);
+
     int asInt(T node);
 
     double asDouble(T node);
@@ -92,6 +93,13 @@ public interface NodeHandler<T extends Object, O extends T, A extends T> {
      * @param node to store on that field
      */
     void setField(O object, String field, T node);
+
+    /**
+     * Adds an item to an array
+     * @param array to update
+     * @param item to add
+     */
+    void addItem(A array, T item);
 
     /**
      * Used to get a field from an object
