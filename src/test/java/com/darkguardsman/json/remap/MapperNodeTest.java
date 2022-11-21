@@ -1,6 +1,7 @@
 package com.darkguardsman.json.remap;
 
 import com.darkguardsman.json.remap.core.nodes.MapperNode;
+import com.darkguardsman.json.remap.core.nodes.MapperNodeArray;
 import com.darkguardsman.json.remap.core.nodes.MapperNodeObject;
 import com.darkguardsman.json.remap.jackson.JacksonHandler;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -20,8 +21,11 @@ public class MapperNodeTest {
     @Test
     void remapObject() {
 
-       final ObjectNode inputObject = createInput();
-       final ObjectNode expectedOutput = createOutput();
+        final ObjectNode inputObject = createInput();
+        final ObjectNode expectedOutput = createOutput();
+
+        // This is just an example for use in testing the concept. Normally developers would use the loader
+        // to convert a JSON into mapper data for use.
 
         // Convert category into sub-object
         final MapperNodeObject<JsonNode, ObjectNode, ArrayNode> firstField = new MapperNodeObject();
@@ -38,23 +42,31 @@ public class MapperNodeTest {
         firstField.setFields(List.of(typeId, typeName));
 
         // Convert value array into object array
-        final MapperNode<JsonNode, ObjectNode, ArrayNode> secondField = new MapperNode();
+        final MapperNodeArray<JsonNode, ObjectNode, ArrayNode> secondField = new MapperNodeArray();
         secondField.setFieldName("options");
         secondField.setAccessor((node, root) -> node.get("values"));
-        secondField.setMapper((mapper, node) -> {
-            if (node instanceof ArrayNode sourceArray) {
-                final ArrayNode arrayNode = mapper.newArray();
-                sourceArray.forEach(value -> {
-                    final String[] split = value.asText().split(":");
-                    final ObjectNode subObject = mapper.newObject();
-                    mapper.setField(subObject, "id", handler.newInteger(Integer.parseInt(split[0])));
-                    mapper.setField(subObject, "name", handler.newText(split[1]));
-                    arrayNode.add(subObject);
-                });
-                return arrayNode;
-            }
-            return mapper.newNull();
+
+        // Build array item mapper
+        final MapperNodeObject<JsonNode, ObjectNode, ArrayNode> itemMapper = new MapperNodeObject();
+        secondField.setItemMapper(itemMapper);
+        itemMapper.setMapper((mapper, node) -> {
+            ArrayNode array = mapper.newArray();
+            String[] split = node.asText().split(":");
+            array.add(split[0]);
+            array.add(split[1]);
+            return array;
         });
+        final MapperNode<JsonNode, ObjectNode, ArrayNode> valueId = new MapperNode();
+        valueId.setFieldName("id");
+        valueId.setMapper((handler, node) -> handler.newInteger(handler.asInt(node)));
+        valueId.setAccessor((node, root) -> node.get(0));
+
+        final MapperNode<JsonNode, ObjectNode, ArrayNode> valueName = new MapperNode();
+        valueName.setFieldName("name");
+        valueName.setAccessor((node, root) -> node.get(1));
+
+        itemMapper.setFields(List.of(valueId, valueName));
+
 
         // Simulate converting "data" to new object
         final MapperNodeObject<JsonNode, ObjectNode, ArrayNode> rootNode = new MapperNodeObject();
