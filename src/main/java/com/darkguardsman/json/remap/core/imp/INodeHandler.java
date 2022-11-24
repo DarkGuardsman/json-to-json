@@ -110,6 +110,15 @@ public interface INodeHandler<T extends Object, O extends T, A extends T> {
     T getField(O object, String field);
 
     /**
+     * Used to get an index of an array
+     *
+     * @param array to access
+     * @param index to get
+     * @return item at index
+     */
+    T getItem(A array, int index);
+
+    /**
      * Checks if an object has a field
      *
      * @param object to access

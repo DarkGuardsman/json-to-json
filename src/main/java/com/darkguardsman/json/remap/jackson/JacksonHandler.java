@@ -115,6 +115,11 @@ public class JacksonHandler implements INodeHandler<JsonNode, ObjectNode, ArrayN
     }
 
     @Override
+    public JsonNode getItem(ArrayNode array, int index) {
+        return array.get(index);
+    }
+
+    @Override
     public boolean hasField(ObjectNode object, String field) {
         return object.has(field);
     }

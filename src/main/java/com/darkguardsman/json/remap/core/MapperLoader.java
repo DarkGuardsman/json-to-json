@@ -1,5 +1,6 @@
 package com.darkguardsman.json.remap.core;
 
+import com.darkguardsman.json.remap.core.accessors.AccessorGet;
 import com.darkguardsman.json.remap.core.errors.MapperException;
 import com.darkguardsman.json.remap.core.imp.IAccessorFunc;
 import com.darkguardsman.json.remap.core.imp.IMapperFunc;
@@ -12,6 +13,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.BiFunction;
@@ -36,7 +38,7 @@ public class MapperLoader<T extends Object, O extends T, A extends T> { //TODO c
     private static final String FIELD_ACCESSOR = "accessor";
 
     // Array constant
-    public static final String TYPE_ARRAY = "array";
+    private static final String TYPE_ARRAY = "array";
     private static final String FIELD_ARRAY_ITEM = "item";
 
     // Object constant
@@ -46,8 +48,6 @@ public class MapperLoader<T extends Object, O extends T, A extends T> { //TODO c
 
     // Actions
     private static final String FIELD_FIELD = "field";
-    private static final String ACTION_FLAT_MAP = "map.flat";
-    private static final String ACTION_MAP = "map";
     private static final String ACTION_GET = "get";
 
     /**
@@ -181,60 +181,33 @@ public class MapperLoader<T extends Object, O extends T, A extends T> { //TODO c
         throw new IllegalArgumentException("mapper configuration failed to load unknown mapper type; node=" + mappingObject);
     }
 
-    public IAccessorFunc<T> loadAccessor(T node) {
+    public IAccessorFunc<T> loadAccessor(T accessorNode) {
 
         // Series of step to run, taking input from the previous step
-        if(handler.isArray(node)) {
-
-        }
-        // More complex accessors, usually meaning we are pulling data for arrays or flatMapping
-        else if(handler.isObject(node)) {
-            final O accessorObject = handler.asObject(node);
-            final String action = handler.asText(handler.getField(accessorObject, FIELD_TYPE));
-            final boolean useRoot = Optional.ofNullable(handler.getField(accessorObject, "root")).map(handler::asBoolean).orElse(false);
-
-            // Converts an array of node into different nodes EX: [{id: 1}, {id: 2}] -> [1, 2]
-            if(action.equalsIgnoreCase(ACTION_MAP)) {
-                //TODO convert node into other node
-            }
-            // Converts nested arrays into a more flat array
-            else if(action.equalsIgnoreCase(ACTION_FLAT_MAP)) {
-                //TODO map then join first layer of arrays
-            }
-            // Simple get field type
-            else if(action.equalsIgnoreCase(ACTION_GET)) {
-                return loadAccessorString(handler.asText(handler.getField(accessorObject, FIELD_FIELD)), useRoot);
-            }
-            else {
-                throw new IllegalArgumentException("mapper configuration failed to load unknown action type; node=" + node);
-            }
-        }
-        return loadAccessorString(handler.asText(node), false);
-    }
-
-    private IAccessorFunc<T> loadAccessorString(String accessor, boolean useRoot) {
-        if (accessor != null) {
-            String[] split = accessor.split("[.]");
+        if(handler.isArray(accessorNode)) {
+            final List<IAccessorFunc<T>> accessors = handler.asStream(handler.asArray(accessorNode), false).map(this::loadAccessor).toList();
             return (node, root) -> {
-                T value = useRoot ? root : node;
-
-                // Dive fields in attempt to resolve full path
-                for (String field : split) {
-
-                    // Validate we are an object, if not throw an error as it likely means our input is invalid or mapper is outdated
-                    if (handler.isObject(value)) {
-                        value = handler.getField(handler.asObject(value), field);
-                        if (value == null) {
-                            return null;
-                        }
-                    } else {
-                        final String formattedMessage = String.format("Failed to access '%s' as field '%s' was not an object, node=%s", accessor, field, value);
-                        throw new MapperException(formattedMessage);
-                    }
+                T value = node; 
+                for(IAccessorFunc<T> nextAccessor : accessors) {
+                    value = nextAccessor.apply(value, root);
                 }
                 return value;
             };
         }
-        return null;
+        // More complex accessors, usually meaning we are pulling data for arrays or flatMapping
+        else if(handler.isObject(accessorNode)) {
+            final O accessorObject = handler.asObject(accessorNode);
+            final String action = handler.asText(handler.getField(accessorObject, FIELD_TYPE));
+            final boolean useRoot = Optional.ofNullable(handler.getField(accessorObject, "root")).map(handler::asBoolean).orElse(false);
+
+            // Simple get field type
+            if(action.equalsIgnoreCase(ACTION_GET)) {
+                return new AccessorGet(handler, handler.asText(handler.getField(accessorObject, FIELD_FIELD)), useRoot);
+            }
+            else {
+                throw new IllegalArgumentException("mapper configuration failed to load unknown action type; node=" + accessorNode);
+            }
+        }
+        return new AccessorGet(handler, handler.asText(accessorNode), false);
     }
 }
