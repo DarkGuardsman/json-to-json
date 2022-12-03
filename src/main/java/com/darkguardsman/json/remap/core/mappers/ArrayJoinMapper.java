@@ -4,6 +4,7 @@ import com.darkguardsman.json.remap.core.MapperLoader;
 import com.darkguardsman.json.remap.core.imp.IMapperFunc;
 import com.darkguardsman.json.remap.core.imp.INodeHandler;
 import lombok.AllArgsConstructor;
+import lombok.Getter;
 
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -17,7 +18,7 @@ public class ArrayJoinMapper<T, O extends T, A extends T> implements IMapperFunc
     private static final String JOINER_DEFAULT = ",";
 
     public static <T, O extends T, A extends T> void register(MapperLoader<T, O, A> loader) {
-        loader.addMapperBuilder(TYPE_ARRAY_JOIN, ArraySplitMapper::build);
+        loader.addMapperBuilder(TYPE_ARRAY_JOIN, ArrayJoinMapper::build);
     }
 
     public static <T, O extends T, A extends T> ArrayJoinMapper<T, O, A> build(MapperLoader<T, O, A> loader, O source) {
@@ -27,12 +28,28 @@ public class ArrayJoinMapper<T, O extends T, A extends T> implements IMapperFunc
         return new ArrayJoinMapper(splitter);
     }
 
+    @Getter
     private final String joiner;
 
     @Override
     public T apply(INodeHandler<T, O, A> factory, T input) {
-        A arrayNode = factory.asArray(input);
-        // TODO add user toggle to turn on parallel if item list is large and each item takes a while to parse
-        return factory.newText(factory.asStream(arrayNode, false).map(factory::asText).collect(Collectors.joining(joiner)));
+        //Handle null
+        if(factory.isNull(input)) {
+            return factory.newNull();
+        }
+
+        // Cast to array
+        final A arrayNode = factory.asArray(input);
+
+        //Handle empty array as null TODO allow override with empty string or other default output for edge case legacy
+        if(factory.isEmpty(arrayNode)) {
+            return factory.newNull();
+        }
+
+        //Join array as string and return
+        final String joinedText = factory.asStream(arrayNode, false)
+                .map(factory::asText)
+                .collect(Collectors.joining(joiner));
+        return factory.newText(joinedText);
     }
 }
