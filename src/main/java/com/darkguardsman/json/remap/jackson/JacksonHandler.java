@@ -123,4 +123,14 @@ public class JacksonHandler implements INodeHandler<JsonNode, ObjectNode, ArrayN
     public boolean hasField(ObjectNode object, String field) {
         return object.has(field);
     }
+
+    @Override
+    public boolean isEmpty(JsonNode node) {
+        return node == null || node.isEmpty();
+    }
+
+    @Override
+    public boolean isNull(JsonNode node) {
+        return node == null || node.isNull();
+    }
 }

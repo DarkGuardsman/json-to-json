@@ -126,4 +126,25 @@ public interface INodeHandler<T extends Object, O extends T, A extends T> {
      * @return true if field is contained
      */
     boolean hasField(O object, String field);
+
+    /**
+     * Checks if a node is considered empty
+     *
+     * null -> true
+     * [] -> true
+     * {} -> true
+     * "" -> true
+     *
+     * @param node to check
+     * @return true if empty
+     */
+    boolean isEmpty(T node);
+
+    /**
+     * Checks if a node is null
+     *
+     * @param input to check
+     * @return true if null or null node
+     */
+    boolean isNull(T input);
 }
