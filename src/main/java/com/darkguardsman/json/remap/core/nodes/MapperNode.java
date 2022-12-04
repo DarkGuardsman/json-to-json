@@ -7,7 +7,6 @@ import com.darkguardsman.json.remap.core.imp.INodeHandler;
 import lombok.Data;
 
 import java.util.Optional;
-import java.util.function.BiFunction;
 
 /**
  * Simple node to go from input -> output, often used for setting fields
@@ -33,13 +32,11 @@ public class MapperNode<T, O extends T, A extends T> implements IMapperNode<T, O
     @Override
     public T apply(INodeHandler<T, O, A> factory, T node, T root) {
         // Get value using accessor
-        T value = Optional.ofNullable(this.accessor).orElse((n, r) -> n).apply(node, root);
+        T value = Optional.ofNullable(this.getAccessor()).orElse((n, r) -> n).apply(node, root);
 
         // Convert value if we have a mapper
-        if (this.mapper != null) {
-            return this.mapper.apply(factory, value);
-        }
-
-        return value;
+        return Optional.ofNullable(this.getMapper())
+                .map(mapper -> mapper.apply(factory,value))
+                .orElse(value);
     }
 }
