@@ -19,15 +19,21 @@ public class MapperNodeArray<T, O extends T, A extends T> extends MapperNode<T, 
 
     @Override
     public T apply(INodeHandler<T, O, A> factory, T node, T root) {
+
         // Get value using accessor
         A array = factory.asArray(super.apply(factory, node, root));
+
+        // Return empty array if current array is also empty
+        if(factory.isEmpty(array)) {
+            return factory.newArray();
+        }
 
         // Create new array
         A newArray = factory.newArray();
 
         // Map each item
         factory.asStream(array, false).forEach(arrayNode -> {
-            factory.addItem(newArray, itemMapper.apply(factory, arrayNode, root));
+            factory.addItem(newArray, this.getItemMapper().apply(factory, arrayNode, root));
         });
 
         return newArray;
