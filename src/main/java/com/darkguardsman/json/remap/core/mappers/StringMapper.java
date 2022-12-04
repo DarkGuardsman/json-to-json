@@ -5,7 +5,7 @@ import com.darkguardsman.json.remap.core.imp.INodeHandler;
 import com.darkguardsman.json.remap.core.imp.IMapperFunc;
 
 /**
- * Converts input node into an string node
+ * Converts input node into a string node
  */
 public class StringMapper<T extends Object, O extends T, A extends T> implements IMapperFunc<T, O, A> {
 
