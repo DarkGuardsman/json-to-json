@@ -197,15 +197,32 @@ public class MapperLoader<T extends Object, O extends T, A extends T> { //TODO c
         // More complex accessors, usually meaning we are pulling data for arrays or flatMapping
         else if(handler.isObject(accessorNode)) {
             final O accessorObject = handler.asObject(accessorNode);
+
+            // Check for required fields
+            if(!handler.hasField(accessorObject, FIELD_TYPE)) {
+                throw new MapperException(String.format("Accessor objects require 'type' field to be defined; node=%s", accessorNode));
+            }
             final String action = handler.asText(handler.getField(accessorObject, FIELD_TYPE));
             final boolean useRoot = Optional.ofNullable(handler.getField(accessorObject, "root")).map(handler::asBoolean).orElse(false);
 
-            // Simple get field type
+            // Simple get field type TODO move to builder
             if(action.equalsIgnoreCase(ACTION_GET)) {
-                return new AccessorGet(handler, handler.asText(handler.getField(accessorObject, FIELD_FIELD)), useRoot);
+
+                // Ensure we have our accessor field
+                if(!handler.hasField(accessorObject, FIELD_FIELD)) {
+                    throw new MapperException(String.format("Accessor type 'get' require 'field' field to be defined; node=%s", accessorNode));
+                }
+
+                // Ensure we didn't leave the field blank
+                final T accessorField = handler.getField(accessorObject, FIELD_FIELD);
+                if(handler.isEmpty(accessorField)) {
+                    throw new MapperException(String.format("Accessor type 'get' require 'field' field to be non-blank; node=%s", accessorNode));
+                }
+
+                return new AccessorGet(handler, handler.asText(accessorField), useRoot);
             }
             else {
-                throw new IllegalArgumentException("mapper configuration failed to load unknown action type; node=" + accessorNode);
+                throw new MapperException(String.format("Unknown action type '%s' for accessor object; node=%s", action, accessorNode));
             }
         }
         return new AccessorGet(handler, handler.asText(accessorNode), false);
